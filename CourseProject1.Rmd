@@ -1,0 +1,70 @@
+---
+title: "Course Project 1"
+author: "Sean Wheatley"
+date: "October 11, 2017"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/583951/Documents/Coursera/JHU Data Science/5 - Reproducible Research/Week 2")
+library(ggplot2)
+```
+
+# Loading and preprocessing the data
+
+```{r load}
+activity = read.csv(file = "activity.csv",na.strings = "NA", header = T)
+activity$date = as.Date(activity$date)
+activity$steps = as.integer(activity$steps)
+```
+
+
+# What is mean total number of steps taken per day?
+```{r mean_steps}
+steps_per_day = aggregate(activity$steps, by = list(activity$date), FUN = sum)
+hist(steps_per_day$x, breaks = seq(0,22000,500),main = "Histogram of Daily Step Count",xlab = "Steps")
+mean_steps = as.character(round(mean(steps_per_day$x, na.rm = T),2))
+median_steps = median(steps_per_day$x, na.rm = T)
+```
+
+The mean number of steps per day is `r mean_steps`, while the median number of steps per day is `r median_steps`.
+
+# What is the average daily activity pattern?
+
+```{r daily_pattern}
+mean_steps_per_interval = aggregate(activity$steps, by = list(activity$interval), FUN = mean, na.rm = T)
+names(mean_steps_per_interval) = c("interval","mean_steps")
+plot(x = mean_steps_per_interval$interval, y = mean_steps_per_interval$mean_steps,type = "l", xlab = "Interval", ylab = "Average Steps", main = "Average Steps per Daily 5-Minute Interval") 
+max_interval = mean_steps_per_interval$interval[which.max(mean_steps_per_interval$mean_steps)]
+
+```
+The interval with the highest average number of steps is from `r max_interval` to `r max_interval + 5`.
+
+# Imputing missing values
+
+```{r impute}
+count_na = sum(!complete.cases(activity))
+activity_imputed = merge(activity, mean_steps_per_interval,by = "interval",all.x = T)
+activity_imputed[which(is.na(activity_imputed$steps)),"steps"] = activity_imputed[which(is.na(activity_imputed$steps)),"mean_steps"]
+
+steps_per_day2 = aggregate(activity_imputed$steps, by = list(activity_imputed$date), FUN = sum)
+hist(steps_per_day2$x, breaks = seq(0,22000,500),main = "Histogram of Daily Step Count",xlab = "Steps")
+mean_steps2 = as.character(round(mean(steps_per_day2$x),2))
+median_steps2 = as.character(round(median(steps_per_day2$x, na.rm = T),2))
+```
+There are `r count_na` rows with NA values in the data.
+After imputing the data, the mean steps taken per day is `r mean_steps2` and the median is `r median_steps2`.  This is the same as our previous mean, but differs from the previous median of `r median_steps`. Since we imputed based on means from specific intervals in the raw data, it makes sense that the mean doesn't change and the median changes slightly.
+
+# Are there differences in activity patterns between weekdays and weekends?
+
+```{r weekday}
+activity_imputed$week_part = NA
+activity_imputed[which(weekdays(activity_imputed$date) %in% c("Saturday","Sunday")),"week_part"] = "weekend"
+activity_imputed[is.na(activity_imputed$week_part),"week_part"] = "weekday"
+activity_imputed$week_part = as.factor(activity_imputed$week_part)
+
+mean_steps_per_interval2 = aggregate(activity_imputed$steps, by = list(activity_imputed$interval,activity_imputed$week_part), FUN = mean)
+ggplot(mean_steps_per_interval2,aes(x = Group.1, y = x)) + geom_line() + facet_grid(Group.2 ~.) + labs(title = "Average Steps per Daily 5-Minute Interval", y = "Steps", x = "Interval")
+```
+
